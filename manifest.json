@@ -1,0 +1,20 @@
+{
+  "name": "Pikmin Fast",
+  "short_name": "Pikmin",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#E8F6F3",
+  "theme_color": "#E8F6F3",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/189/189664.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/189/189664.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
