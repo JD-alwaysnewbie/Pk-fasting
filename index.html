@@ -8,81 +8,142 @@
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/189/189664.png">
     <meta name="theme-color" content="#E8F6F3">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <link href="https://fonts.googleapis.com/css2?family=Varela+Round&display=swap" rel="stylesheet">
     <style>
         :root { --bg: #E8F6F3; --card: #FFF; --red: #E74C3C; --yellow: #F1C40F; --blue: #3498DB; --green: #2ECC71; --text: #2C3E50; }
         body { font-family: 'Varela Round', sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; -webkit-tap-highlight-color: transparent; }
+        
         .container { background: var(--card); width: 100%; max-width: 380px; border-radius: 30px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; margin-top: 20px;}
         h1 { margin: 0 0 10px; color: var(--text); }
-        .visual-circle { width: 180px; height: 180px; background: #F4F6F7; border-radius: 50%; margin: 20px auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 6px solid var(--green); transition: border-color 0.5s; }
+        
+        /* 視覺區 */
+        .visual-circle { width: 180px; height: 180px; background: #F4F6F7; border-radius: 50%; margin: 10px auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 6px solid var(--green); transition: border-color 0.5s; position: relative;}
         .emoji { font-size: 5rem; animation: bounce 3s infinite ease-in-out; }
         .status { font-weight: bold; margin-top: 10px; color: var(--green); }
-        .timer { font-size: 3.5rem; font-weight: 700; margin: 10px 0; font-variant-numeric: tabular-nums; line-height: 1; }
-        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-        button { border: none; padding: 18px; border-radius: 18px; font-size: 1.1rem; font-weight: bold; color: white; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .timer { font-size: 3.5rem; font-weight: 700; margin: 5px 0 15px; font-variant-numeric: tabular-nums; line-height: 1; }
+        
+        /* 時間選擇器樣式 */
+        .time-input-group { background: #F8F9F9; padding: 10px; border-radius: 15px; margin-bottom: 15px; text-align: left; }
+        .time-label { font-size: 0.8rem; color: #7F8C8D; margin-bottom: 5px; display: block; }
+        input[type="datetime-local"] {
+            width: 100%; padding: 10px; font-size: 1.1rem; border: 1px solid #BDC3C7; border-radius: 10px; 
+            font-family: sans-serif; box-sizing: border-box; background: white; -webkit-appearance: none;
+        }
+
+        /* 按鈕區 */
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        button { border: none; padding: 15px; border-radius: 15px; font-size: 1.1rem; font-weight: bold; color: white; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.1s; }
+        button:active { transform: scale(0.96); }
         .btn-fast { background: var(--blue); } .btn-eat { background: var(--red); }
-        .btn-disabled { opacity: 0.5; pointer-events: none; background: #BDC3C7; }
+        .btn-disabled { opacity: 0.5; pointer-events: none; background: #BDC3C7; box-shadow: none; }
+        
         @keyframes bounce { 0%,100% {transform:rotate(-5deg)} 50% {transform:rotate(5deg) translateY(-5px)} }
         #history { margin-top: 30px; width: 100%; max-width: 380px; text-align: left; font-size: 0.9rem; color: #7F8C8D; }
+        .hist-item { border-bottom: 1px solid #eee; padding: 8px 0; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Pikmin 168</h1>
+        
         <div class="visual-circle" id="circle">
             <div class="emoji" id="icon">🌱</div>
             <div class="status" id="status">準備中</div>
         </div>
+        
         <div class="timer" id="timer">00:00:00</div>
         
+        <div class="time-input-group">
+            <label class="time-label">📅 設定操作時間 (預設為現在)</label>
+            <input type="datetime-local" id="picker">
+            <div style="text-align:right; margin-top:5px;">
+                <span onclick="setPickerNow()" style="font-size:0.8rem; color:var(--blue); text-decoration:underline; cursor:pointer;">重置為現在</span>
+            </div>
+        </div>
+
         <div class="btn-group">
-            <button class="btn-fast" id="btnFast" onclick="toggleFast(true)">🌙 斷食</button>
-            <button class="btn-eat btn-disabled" id="btnEat" onclick="toggleFast(false)">🍳 進食</button>
+            <button class="btn-fast" id="btnFast" onclick="handleAction(true)">🌙 開始斷食</button>
+            <button class="btn-eat btn-disabled" id="btnEat" onclick="handleAction(false)">🍳 結束斷食</button>
         </div>
     </div>
-    <div id="history">近期紀錄：<br><span id="lastRecord">無</span></div>
+
+    <div id="history">
+        <b>近期紀錄 (本地端)：</b>
+        <div id="histList"></div>
+    </div>
 
     <script>
-        // PWA Service Worker 註冊
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js');
-        }
+        // PWA 註冊
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 
-        // 邏輯變數
+        // 變數
         let start = localStorage.getItem('p_start');
         let fasting = localStorage.getItem('p_fast') === 'true';
+        let history = JSON.parse(localStorage.getItem('p_history') || '[]');
         let timerInt;
 
         window.onload = () => {
+            setPickerNow(); // 初始化時間選擇器為現在
+            renderHistory();
             if(fasting && start) { start = new Date(start); loop(); }
             updateUI();
         };
 
-        function toggleFast(isStart) {
+        // 設定時間選擇器為現在時間 (處理時區問題)
+        function setPickerNow() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('picker').value = now.toISOString().slice(0,16);
+        }
+
+        // 核心邏輯：處理按鈕點擊
+        function handleAction(isStart) {
+            const pickerTime = new Date(document.getElementById('picker').value);
+            
             if(isStart) {
+                // 開始斷食 (補登)
                 if(fasting) return;
-                start = new Date();
+                start = pickerTime;
                 fasting = true;
+                
                 localStorage.setItem('p_start', start);
                 localStorage.setItem('p_fast', 'true');
                 loop();
+                alert(`設定從 ${pickerTime.toLocaleString()} 開始斷食！`);
             } else {
+                // 結束斷食 (補登)
                 if(!fasting) return;
-                let hrs = ((new Date() - start)/3600000).toFixed(1);
-                document.getElementById('lastRecord').innerText = `${new Date().toLocaleDateString()} - ${hrs}小時`;
+                
+                if(pickerTime < start) {
+                    alert("結束時間不能早於開始時間喔！");
+                    return;
+                }
+
+                // 計算時長 (使用選擇器的時間 - 開始時間)
+                let diff = pickerTime - start;
+                let hrs = (diff / 3600000).toFixed(1);
+                
+                // 儲存紀錄
+                addHistory(pickerTime, hrs);
+
                 fasting = false;
                 localStorage.setItem('p_fast', 'false');
                 clearInterval(timerInt);
                 alert(`斷食結束！共 ${hrs} 小時`);
             }
             updateUI();
+            setPickerNow(); // 操作完後，把時間重置回現在
         }
 
         function loop() { clearInterval(timerInt); timerInt = setInterval(updateTimer, 1000); updateTimer(); }
+        
         function updateTimer() {
+            // 計時器永遠顯示「現在 - 開始時間」
             let diff = new Date() - start;
+            // 如果是補登未來時間，避免負數
+            if(diff < 0) diff = 0; 
+
             let h = Math.floor(diff/3600000), m = Math.floor((diff%3600000)/60000), s = Math.floor((diff%60000)/1000);
             document.getElementById('timer').innerText = `${pad(h)}:${pad(m)}:${pad(s)}`;
             
@@ -102,9 +163,29 @@
             if(!fasting) {
                  document.getElementById('icon').innerText="🍒"; 
                  document.getElementById('status').innerText="進食窗口";
+                 document.getElementById('status').style.color="var(--blue)";
+                 document.getElementById('circle').style.borderColor="var(--blue)";
                  document.getElementById('timer').innerText="00:00:00";
             }
         }
+
+        function addHistory(endDate, hrs) {
+            let rec = { date: endDate.toLocaleDateString(), hrs: hrs };
+            history.unshift(rec);
+            if(history.length > 5) history.pop(); // 只留最近5筆
+            localStorage.setItem('p_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            let html = '';
+            history.forEach(r => {
+                let color = r.hrs >= 16 ? 'var(--red)' : '#7F8C8D';
+                html += `<div class="hist-item"><span>${r.date}</span><span style="color:${color}; font-weight:bold;">${r.hrs} h</span></div>`;
+            });
+            document.getElementById('histList').innerHTML = html || '尚無紀錄';
+        }
+
         function pad(n){return n<10?'0'+n:n}
     </script>
 </body>
