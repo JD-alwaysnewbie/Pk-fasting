@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>皮克敏斷食</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/189/189664.png">
+    <meta name="theme-color" content="#E8F6F3">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Varela+Round&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #E8F6F3; --card: #FFF; --red: #E74C3C; --yellow: #F1C40F; --blue: #3498DB; --green: #2ECC71; --text: #2C3E50; }
+        body { font-family: 'Varela Round', sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; -webkit-tap-highlight-color: transparent; }
+        .container { background: var(--card); width: 100%; max-width: 380px; border-radius: 30px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; margin-top: 20px;}
+        h1 { margin: 0 0 10px; color: var(--text); }
+        .visual-circle { width: 180px; height: 180px; background: #F4F6F7; border-radius: 50%; margin: 20px auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 6px solid var(--green); transition: border-color 0.5s; }
+        .emoji { font-size: 5rem; animation: bounce 3s infinite ease-in-out; }
+        .status { font-weight: bold; margin-top: 10px; color: var(--green); }
+        .timer { font-size: 3.5rem; font-weight: 700; margin: 10px 0; font-variant-numeric: tabular-nums; line-height: 1; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        button { border: none; padding: 18px; border-radius: 18px; font-size: 1.1rem; font-weight: bold; color: white; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn-fast { background: var(--blue); } .btn-eat { background: var(--red); }
+        .btn-disabled { opacity: 0.5; pointer-events: none; background: #BDC3C7; }
+        @keyframes bounce { 0%,100% {transform:rotate(-5deg)} 50% {transform:rotate(5deg) translateY(-5px)} }
+        #history { margin-top: 30px; width: 100%; max-width: 380px; text-align: left; font-size: 0.9rem; color: #7F8C8D; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pikmin 168</h1>
+        <div class="visual-circle" id="circle">
+            <div class="emoji" id="icon">🌱</div>
+            <div class="status" id="status">準備中</div>
+        </div>
+        <div class="timer" id="timer">00:00:00</div>
+        
+        <div class="btn-group">
+            <button class="btn-fast" id="btnFast" onclick="toggleFast(true)">🌙 斷食</button>
+            <button class="btn-eat btn-disabled" id="btnEat" onclick="toggleFast(false)">🍳 進食</button>
+        </div>
+    </div>
+    <div id="history">近期紀錄：<br><span id="lastRecord">無</span></div>
+
+    <script>
+        // PWA Service Worker 註冊
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
+        }
+
+        // 邏輯變數
+        let start = localStorage.getItem('p_start');
+        let fasting = localStorage.getItem('p_fast') === 'true';
+        let timerInt;
+
+        window.onload = () => {
+            if(fasting && start) { start = new Date(start); loop(); }
+            updateUI();
+        };
+
+        function toggleFast(isStart) {
+            if(isStart) {
+                if(fasting) return;
+                start = new Date();
+                fasting = true;
+                localStorage.setItem('p_start', start);
+                localStorage.setItem('p_fast', 'true');
+                loop();
+            } else {
+                if(!fasting) return;
+                let hrs = ((new Date() - start)/3600000).toFixed(1);
+                document.getElementById('lastRecord').innerText = `${new Date().toLocaleDateString()} - ${hrs}小時`;
+                fasting = false;
+                localStorage.setItem('p_fast', 'false');
+                clearInterval(timerInt);
+                alert(`斷食結束！共 ${hrs} 小時`);
+            }
+            updateUI();
+        }
+
+        function loop() { clearInterval(timerInt); timerInt = setInterval(updateTimer, 1000); updateTimer(); }
+        function updateTimer() {
+            let diff = new Date() - start;
+            let h = Math.floor(diff/3600000), m = Math.floor((diff%3600000)/60000), s = Math.floor((diff%60000)/1000);
+            document.getElementById('timer').innerText = `${pad(h)}:${pad(m)}:${pad(s)}`;
+            
+            // 皮克敏進化
+            let icon = document.getElementById('icon');
+            let circle = document.getElementById('circle');
+            let st = document.getElementById('status');
+            
+            if(h < 12) { icon.innerText="🌱"; circle.style.borderColor="var(--green)"; st.style.color="var(--green)"; st.innerText="燃燒肝醣"; }
+            else if(h < 16) { icon.innerText="🌷"; circle.style.borderColor="var(--yellow)"; st.style.color="var(--yellow)"; st.innerText="燃脂模式"; }
+            else { icon.innerText="🌺"; circle.style.borderColor="var(--red)"; st.style.color="var(--red)"; st.innerText="168 達標"; }
+        }
+
+        function updateUI() {
+            document.getElementById('btnFast').className = fasting ? 'btn-fast btn-disabled' : 'btn-fast';
+            document.getElementById('btnEat').className = fasting ? 'btn-eat' : 'btn-eat btn-disabled';
+            if(!fasting) {
+                 document.getElementById('icon').innerText="🍒"; 
+                 document.getElementById('status').innerText="進食窗口";
+                 document.getElementById('timer').innerText="00:00:00";
+            }
+        }
+        function pad(n){return n<10?'0'+n:n}
+    </script>
+</body>
+</html>
